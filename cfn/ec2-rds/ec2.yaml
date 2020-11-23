@@ -1,0 +1,74 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 Template
+
+Parameters:
+  Name:
+    Type: String
+
+Resources:
+  EC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-Instance
+      AvailabilityZone: ap-northeast-1a
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroupIds:
+        - !Ref EC2SG
+      ImageId: ami-034968955444c1fd9
+      InstanceType: t3.small
+      SubnetId:
+        Fn::ImportValue: !Sub ${Name}-PublicSubnet1a
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          sudo yum -y install httpd
+          sudo systemctl start httpd
+          sudo systemctl enable httpd
+
+  EC2InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: '/'
+      Roles:
+        - !Ref EC2Role
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Description: ssm role
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2SG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2 security group
+      GroupName: !Sub ${Name}-SG
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-Instance
+      VpcId:
+        Fn::ImportValue: !Sub ${Name}-VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Internet
+
+Outputs:
+  EC2SG:
+    Value: !Ref EC2SG
+    Export:
+      Name: !Sub ${Name}-EC2-SG

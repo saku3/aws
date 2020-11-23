@@ -1,0 +1,64 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RDS
+
+Parameters:
+  Name:
+    Type: String
+
+Resources:
+  paramGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: rds parameter group
+      Family: mysql8.0
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-db-parametergroup
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Sub ${Name}-db-subnetgroup
+      DBSubnetGroupDescription: !Sub ${Name}-db-subnetgroup
+      SubnetIds:
+        - Fn::ImportValue: !Sub ${Name}-PrivateSubnet1a
+        - Fn::ImportValue: !Sub ${Name}-PrivateSubnet1c
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-db-subnetgroup
+
+  RDSSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS security group
+      GroupName: !Sub ${Name}-RDS-SG
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-RDS-SG
+      VpcId:
+        Fn::ImportValue: !Sub ${Name}-VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub ${Name}-EC2-SG
+          Description: RDS
+
+  DB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: !Sub ${Name}DB
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      DBInstanceIdentifier: !Sub ${Name}-DB
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref paramGroup
+      Engine: MySQL
+      EngineVersion: 8.0.16
+      MasterUsername: dbuser
+      MasterUserPassword: '{{resolve:ssm-secure:DBPassword:1}}'
+      MultiAZ: false
+      VPCSecurityGroups:
+        - !Ref RDSSG

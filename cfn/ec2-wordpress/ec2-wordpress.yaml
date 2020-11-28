@@ -1,0 +1,84 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 Wordpress Template
+
+Parameters:
+  Name:
+    Type: String
+
+Resources:
+  EC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-webserver
+      AvailabilityZone: ap-northeast-1a
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroupIds:
+        - !Ref EC2WebSG
+      ImageId: ami-00f045aed21a55240
+      InstanceType: t3.small
+      SubnetId:
+        Fn::ImportValue: !Sub ${Name}-PublicSubnet1a
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          yum -y update
+          amazon-linux-extras install php7.2 -y
+          yum -y install mysql httpd php-mbstring php-xml
+          wget http://ja.wordpress.org/latest-ja.tar.gz -P /tmp/
+          tar zxvf /tmp/latest-ja.tar.gz -C /tmp
+          cp -r /tmp/wordpress/* /var/www/html/
+          chown apache:apache -R /var/www/html
+          systemctl enable httpd.service
+          systemctl start httpd.service
+
+  EC2InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: '/'
+      Roles:
+        - !Ref EC2Role
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Description: ssm role
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2WebSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2 security group
+      GroupName: !Sub ${Name}-SG
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-Instance
+      VpcId:
+        Fn::ImportValue: !Sub ${Name}-VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Internet
+
+Outputs:
+  EC2Web:
+    Value: !Ref EC2
+    Export:
+      Name: !Sub ${Name}-EC2-Instance
+  EC2WebSG:
+    Value: !Ref EC2WebSG
+    Export:
+      Name: !Sub ${Name}-EC2-SG

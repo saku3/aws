@@ -1,0 +1,69 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ELB template
+
+Parameters:
+  Name:
+    Type: String
+
+Resources:
+  ELB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: !Sub ${Name}-ELB
+      SecurityGroups:
+        - !Ref ELBSG
+      Subnets:
+        - Fn::ImportValue: !Sub ${Name}-PublicSubnet1a
+        - Fn::ImportValue: !Sub ${Name}-PublicSubnet1c
+      Type: application
+
+  ELBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ELB security group
+      GroupName: !Sub ${Name}-ELB-SG
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-ELB-SG
+      VpcId:
+        Fn::ImportValue: !Sub ${Name}-VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: ELB Ingress
+
+  ELBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref ELBTG
+          Type: forward
+      LoadBalancerArn: !Ref ELB
+      Port: 80
+      Protocol: HTTP
+
+  ELBTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 60
+      HealthCheckPath: /wp-includes/images/blank.gif
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 5
+      Name: !Sub ${Name}-ELBTG
+      Port: 80
+      Protocol: HTTP
+      Targets:
+        - Id:
+            Fn::ImportValue: !Sub ${Name}-EC2-Instance
+          Port: 80
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Fn::ImportValue: !Sub ${Name}-VPC

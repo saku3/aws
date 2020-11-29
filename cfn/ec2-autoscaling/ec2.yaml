@@ -1,0 +1,142 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 Wordpress Template
+
+Parameters:
+  Name:
+    Type: String
+  AMI:
+    Description: AutoScaling AMI
+    Type: String
+  DesiredCapacity:
+    Description: AutoScaling Desired Capacity
+    Type: Number
+
+Resources:
+  LC:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      ImageId: !Ref AMI
+      InstanceType: t3.small
+      LaunchConfigurationName: !Sub ${Name}-LC
+      SecurityGroups:
+        - !Ref EC2WebSG
+
+  ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${Name}-ASG
+      DesiredCapacity: !Ref DesiredCapacity
+      HealthCheckGracePeriod: 300
+      HealthCheckType: ELB
+      LaunchConfigurationName: !Ref LC
+      MaxSize: 5
+      MinSize: 1
+      TargetGroupARNs:
+        - !Ref ELBTG
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub ${Name}-PrivateSubnet1a
+        - Fn::ImportValue: !Sub ${Name}-PrivateSubnet1c
+
+  EC2InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: '/'
+      Roles:
+        - !Ref EC2Role
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Description: ssm role
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2WebSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2 security group
+      GroupName: !Sub ${Name}-SG
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-SG
+      VpcId:
+        Fn::ImportValue: !Sub ${Name}-VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ELBSG
+          Description: WebSG
+
+  ELB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: !Sub ${Name}-ELB
+      SecurityGroups:
+        - !Ref ELBSG
+      Subnets:
+        - Fn::ImportValue: !Sub ${Name}-PublicSubnet1a
+        - Fn::ImportValue: !Sub ${Name}-PublicSubnet1c
+      Type: application
+
+  ELBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ELB security group
+      GroupName: !Sub ${Name}-ELB-SG
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-ELB-SG
+      VpcId:
+        Fn::ImportValue: !Sub ${Name}-VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: ELB Ingress
+
+  ELBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref ELBTG
+          Type: forward
+      LoadBalancerArn: !Ref ELB
+      Port: 80
+      Protocol: HTTP
+
+  ELBTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 60
+      HealthCheckPath: /wp-includes/images/blank.gif
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 5
+      Name: !Sub ${Name}-ELBTG
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Fn::ImportValue: !Sub ${Name}-VPC
+
+Outputs:
+  EC2WebSG:
+    Value: !Ref EC2WebSG
+    Export:
+      Name: !Sub ${Name}-EC2-SG

@@ -31,23 +31,6 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  EIP:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-
-  NAT:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId:
-        Fn::GetAtt:
-          - EIP
-          - AllocationId
-      SubnetId: !Ref PublicSubnet1a
-      Tags:
-        - Key: Name
-          Value: !Sub ${Name}-ngw-1a
-
   PublicSubnet1a:
     Type: AWS::EC2::Subnet
     Properties:
@@ -59,11 +42,22 @@ Resources:
           Value: !Sub ${Name}-Public-Subnet-1a
       VpcId: !Ref VPC
 
+  PublicSubnet1c:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1c
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-Public-Subnet-1c
+      VpcId: !Ref VPC
+
   PrivateSubnet1a:
     Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone: ap-northeast-1a
-      CidrBlock: 10.0.1.0/24
+      CidrBlock: 10.0.2.0/24
       MapPublicIpOnLaunch: 'false'
       Tags:
         - Key: Name
@@ -74,11 +68,33 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone: ap-northeast-1c
-      CidrBlock: 10.0.2.0/24
+      CidrBlock: 10.0.3.0/24
       MapPublicIpOnLaunch: 'false'
       Tags:
         - Key: Name
           Value: !Sub ${Name}-Private-Subnet-1c
+      VpcId: !Ref VPC
+
+  PrivateSubnet2a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: 10.0.4.0/24
+      MapPublicIpOnLaunch: 'false'
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-Private-Subnet-2a
+      VpcId: !Ref VPC
+
+  PrivateSubnet2c:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1c
+      CidrBlock: 10.0.5.0/24
+      MapPublicIpOnLaunch: 'false'
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-Private-Subnet-2c
       VpcId: !Ref VPC
 
   PublicRouteTable:
@@ -87,7 +103,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub ${Name}-Public-RT1a
+          Value: !Sub ${Name}-Public-RT
 
   PublicRoute:
     Type: AWS::EC2::Route
@@ -96,40 +112,17 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
-  PublicSubnetRouteTableAssociation:
+  PublicSubnetRoute1aTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PublicSubnet1a
       RouteTableId: !Ref PublicRouteTable
 
-  PrivateRouteTable:
-    Type: AWS::EC2::RouteTable
-    DependsOn: NAT
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Sub ${Name}-Private-RT
-
-  PrivateRoute:
-    Type: AWS::EC2::Route
-    DependsOn: NAT
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NAT
-
-  PrivateSubnet1aRouteTableAssociation:
+  PublicSubnetRoute1cTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PrivateSubnet1a
-      RouteTableId: !Ref PrivateRouteTable
-
-  PrivateSubnet1cRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PrivateSubnet1c
-      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PublicSubnet1c
+      RouteTableId: !Ref PublicRouteTable
 
 Outputs:
   VPC:
@@ -140,6 +133,10 @@ Outputs:
     Value: !Ref PublicSubnet1a
     Export:
       Name: !Sub ${Name}-PublicSubnet1a
+  PublicSubnet1c:
+    Value: !Ref PublicSubnet1c
+    Export:
+      Name: !Sub ${Name}-PublicSubnet1c
   PrivateSubnet1a:
     Value: !Ref PrivateSubnet1a
     Export:
@@ -148,3 +145,11 @@ Outputs:
     Value: !Ref PrivateSubnet1c
     Export:
       Name: !Sub ${Name}-PrivateSubnet1c
+  PrivateSubnet2a:
+    Value: !Ref PrivateSubnet2a
+    Export:
+      Name: !Sub ${Name}-PrivateSubnet2a
+  PrivateSubnet2c:
+    Value: !Ref PrivateSubnet2c
+    Export:
+      Name: !Sub ${Name}-PrivateSubnet2c

@@ -32,7 +32,6 @@ Resources:
 
   PublicSubnet1a:
     Type: AWS::EC2::Subnet
-    DependsOn: AttachGateway
     Properties:
       AvailabilityZone: ap-northeast-1a
       CidrBlock: 10.0.0.0/24
@@ -44,7 +43,6 @@ Resources:
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
-    DependsOn: AttachGateway
     Properties:
       VpcId: !Ref VPC
       Tags:
@@ -53,7 +51,6 @@ Resources:
 
   PublicRoute:
     Type: AWS::EC2::Route
-    DependsOn: AttachGateway
     Properties:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
